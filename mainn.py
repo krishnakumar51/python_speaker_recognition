@@ -88,6 +88,13 @@ def load_model():
     else:
         print("Model or scaler not found. Please train the model first.")
 
+
+@app.route('/', methods=['GET'])
+def ping():
+    return jsonify({'message': 'pong'}), 200
+
+
+
 @app.route('/ping', methods=['GET'])
 def ping():
     return jsonify({'message': 'pong'}), 200
@@ -208,4 +215,5 @@ load_model()
 
 # Disable auto-reloading to avoid unnecessary restarts
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False, host='0.0.0.0')
+    port = int(os.environ.get("PORT", 5000))  # Use the PORT environment variable
+    app.run(debug=True, use_reloader=False, host='0.0.0.0', port=port)
