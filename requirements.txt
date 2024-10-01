@@ -8,3 +8,4 @@ nosiereduce
 soundfile
 SpeechRecognition
 ipython
+gunicorn
