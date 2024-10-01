@@ -90,8 +90,8 @@ def load_model():
 
 
 @app.route('/', methods=['GET'])
-def ping():
-    return jsonify({'message': 'pong'}), 200
+def hello():
+    return "hello", 200
 
 
 
