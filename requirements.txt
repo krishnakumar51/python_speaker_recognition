@@ -1,6 +1,8 @@
 Flask
 Flask-Cors
 librosa
+gunicorn
+gTTS
 numpy
 torch
 speechbrain
@@ -9,5 +11,3 @@ noisereduce
 soundfile
 SpeechRecognition
 ipython
-gunicorn
-gTTS
