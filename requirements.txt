@@ -4,6 +4,7 @@ numpy
 torch
 speechbrain
 scikit-learn
+noisereduce
 soundfile
 SpeechRecognition
 ipython
