@@ -1,0 +1,6 @@
+Flask
+librosa
+numpy
+torch
+speechbrain
+scikit-learn
