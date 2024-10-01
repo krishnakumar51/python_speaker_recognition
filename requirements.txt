@@ -10,3 +10,4 @@ soundfile
 SpeechRecognition
 ipython
 gunicorn
+gTTS
