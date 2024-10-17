@@ -21,8 +21,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t your-dockerhub-username/your-image-name .
+          docker build -t krishnag51/pdp .
 
       - name: Push Docker image
         run: |
-          docker push your-dockerhub-username/your-image-name
+          docker push krishnag51/pdp
