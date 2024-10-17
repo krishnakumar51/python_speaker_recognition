@@ -48,7 +48,7 @@ def detect_wake_word(audio_file_path):
             print(f"Recognized Text: {text}")
 
             # Check if the recognized text contains "hi siri"
-            if text.lower() == "hi buddy":
+            if text.lower() == "hi siri":
                 return True
             else:
                 print("Wake word not detected.")
