@@ -8,7 +8,6 @@ import soundfile as sf
 import speech_recognition as sr
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from gtts import gTTS
 from IPython.display import Audio, display
 from imp import VariableLengthSpeakerVerificationModel, train_model, verify_speaker, get_embedding, MODEL_PATH, SCALER_PATH
 
@@ -63,11 +62,6 @@ def detect_wake_word(audio_file_path):
             return False
 
 
-# Function to generate and play TTS response (for feedback in Colab)
-def generate_tts_response(text, output_file):
-    tts = gTTS(text=text)
-    tts.save(output_file)
-    display(Audio(output_file, autoplay=True))
 
 # Function to load the model and scaler once at server startup
 def load_model():
