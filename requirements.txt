@@ -2,7 +2,6 @@ Flask==3.0.3
 Flask-Cors==5.0.0
 librosa==0.10.2.post1
 gunicorn==23.0.0
-gTTS==2.5.3
 numpy==1.26.4
 torch==2.4.1
 speechbrain==1.0.1

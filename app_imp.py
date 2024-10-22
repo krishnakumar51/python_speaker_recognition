@@ -7,13 +7,18 @@ import librosa
 from speechbrain.pretrained import EncoderClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+import pickle
 
 # Constants
 USER_MODEL_FOLDER = "UserModel"
 USER_FOLDER = "authenticated_user"
 NON_USER_FOLDER = "non_target"
-MODEL_PATH = "speaker_verification_model.pth"
+MODEL_PATH = "model.pth"
 SCALER_PATH = "scaler.pkl"
+BATCH_SIZE = 16
+NUM_EPOCHS = 100
+LEARNING_RATE = 0.001
+DROPOUT_RATE = 0.3
 
 # Load the pre-trained model for embedding extraction
 encoder = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb")
@@ -25,7 +30,7 @@ class VariableLengthSpeakerVerificationModel(nn.Module):
         self.fc1 = nn.Linear(256, 64)
         self.fc2 = nn.Linear(64, 1)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.3)
+        self.dropout = nn.Dropout(DROPOUT_RATE)
         self.sigmoid = nn.Sigmoid()
         
     def forward(self, x):
@@ -37,10 +42,14 @@ class VariableLengthSpeakerVerificationModel(nn.Module):
 
 def get_embedding(audio_path):
     """Get speaker embedding from the audio."""
-    signal, fs = librosa.load(audio_path, sr=16000)
-    signal = torch.tensor(np.expand_dims(signal, axis=0))
-    embeddings = encoder.encode_batch(signal)
-    return embeddings.squeeze().cpu().detach().numpy()
+    try:
+        signal, fs = librosa.load(audio_path, sr=16000)
+        signal = torch.tensor(np.expand_dims(signal, axis=0))
+        embeddings = encoder.encode_batch(signal)
+        return embeddings.squeeze().cpu().detach().numpy()
+    except Exception as e:
+        print(f"Error in getting embedding for {audio_path}: {e}")
+        return None
 
 def collect_embeddings(folder, label):
     """Collect embeddings from audio files in the given folder."""
@@ -50,13 +59,14 @@ def collect_embeddings(folder, label):
         if file_name.endswith('.wav'):
             file_path = os.path.join(folder, file_name)
             embedding = get_embedding(file_path)
-            embeddings.append(embedding)
-            labels.append(label)
+            if embedding is not None:
+                embeddings.append(embedding)
+                labels.append(label)
     return embeddings, labels
 
-def prepare_data():
+def prepare_data(user_dir, username):
     """Prepare data for training the model."""
-    user_embeddings, user_labels = collect_embeddings(USER_FOLDER, 1)
+    user_embeddings, user_labels = collect_embeddings(user_dir, 1)
     non_user_embeddings, non_user_labels = collect_embeddings(NON_USER_FOLDER, 0)
     
     X = user_embeddings + non_user_embeddings
@@ -66,47 +76,35 @@ def prepare_data():
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
     
-    # Save the scaler for later use
-    torch.save(scaler, SCALER_PATH)
+    # Save the scaler for later use in the specific user's folder
+    save_user_model(None, scaler, username, save_scaler_only=True)
     
     return train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 
-def train_model(username):
+    
+    return train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+def train_model(username, X_train, y_train):
     print(f"Preparing data for user {username}...")
-    
-    user_folder_path = os.path.join(USER_FOLDER, username)
-    user_embeddings, user_labels = collect_embeddings(user_folder_path, 1)
-    non_user_embeddings, non_user_labels = collect_embeddings(NON_USER_FOLDER, 0)
-    
-    X = user_embeddings + non_user_embeddings
-    y = user_labels + non_user_labels
-    
-    # Normalize the data
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-    
-    # Split the data
-    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
-    
+
     input_size = X_train[0].shape[0]
     model = VariableLengthSpeakerVerificationModel(input_size)
-    
+    model.to('cuda' if torch.cuda.is_available() else 'cpu')
+
     # Define loss and optimizer
     criterion = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
-    
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-5)
+
     print("Starting training...")
-    num_epochs = 100
-    batch_size = 16
-    for epoch in range(num_epochs):
+    for epoch in range(NUM_EPOCHS):
         model.train()
         total_loss = 0
         correct_predictions = 0
         total_predictions = 0
         
-        for i in range(0, len(X_train), batch_size):
-            batch_X = torch.tensor(X_train[i:i+batch_size], dtype=torch.float32).unsqueeze(1)
-            batch_y = torch.tensor(y_train[i:i+batch_size], dtype=torch.float32).unsqueeze(1)
+        for i in range(0, len(X_train), BATCH_SIZE):
+            batch_X = torch.tensor(X_train[i:i+BATCH_SIZE], dtype=torch.float32).unsqueeze(1).to('cuda' if torch.cuda.is_available() else 'cpu')
+            batch_y = torch.tensor(y_train[i:i+BATCH_SIZE], dtype=torch.float32).unsqueeze(1).to('cuda' if torch.cuda.is_available() else 'cpu')
             
             optimizer.zero_grad()
             outputs = model(batch_X)
@@ -122,12 +120,12 @@ def train_model(username):
         if (epoch + 1) % 10 == 0:
             epoch_loss = total_loss / len(X_train)
             epoch_accuracy = correct_predictions / total_predictions
-            print(f"Epoch {epoch+1}/{num_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}")
-    
+            print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}")
+
     print("Training completed.")
     
     # Save the model and scaler
-    save_user_model(model, scaler, username)
+    save_user_model(model, None, username, save_scaler_only=False)
     
     # Clean up the user's folder after training
     remove_user_folder(username)
@@ -135,25 +133,21 @@ def train_model(username):
     return model
 
 
-
 def verify_speaker(audio_path, model, scaler):
     """Verify if the audio is from the authorized user."""
     embedding = get_embedding(audio_path)
+    if embedding is None:
+        return False, 0.0
+
     embedding_scaled = scaler.transform([embedding])
     
     model.eval()
     with torch.no_grad():
-        output = model(torch.tensor(embedding_scaled, dtype=torch.float32).unsqueeze(0))
+        output = model(torch.tensor(embedding_scaled, dtype=torch.float32).unsqueeze(0).to('cuda' if torch.cuda.is_available() else 'cpu'))
         probability = output.item()
     return probability > 0.8, probability
 
-
-
-
-
-
-# ``````````````````````````````````````````````````````````````````````````````````````````````````
-
+# Folder Management Functions (no changes required here)
 def create_user_folder(username):
     user_folder_path = os.path.join(USER_FOLDER, username)
     os.makedirs(user_folder_path, exist_ok=True)
@@ -167,7 +161,6 @@ def create_user_model_folder(username):
 def remove_user_folder(username):
     user_folder_path = os.path.join(USER_FOLDER, username)
     if os.path.exists(user_folder_path):
-        # Remove the user's folder after training
         for file_name in os.listdir(user_folder_path):
             file_path = os.path.join(user_folder_path, file_name)
             if os.path.isfile(file_path):
@@ -175,36 +168,23 @@ def remove_user_folder(username):
         os.rmdir(user_folder_path)
         print(f"User folder {user_folder_path} removed successfully.")
 
-def save_user_model(model, scaler, username):
-    # Create user model folder and save model and scaler
-    user_model_folder = create_user_model_folder(username)
-    model_path = os.path.join(user_model_folder, f"{username}_model.pth")
-    scaler_path = os.path.join(user_model_folder, f"{username}_scaler.pkl")
+def save_user_model(model, scaler, username, save_scaler_only=False):
+    # Define the path for the user-specific folder inside the 'UserModel' directory
+    user_model_folder = os.path.join(USER_MODEL_FOLDER, username)
     
-    torch.save(model.state_dict(), model_path)
-    torch.save(scaler, scaler_path)
+    # Create the directory if it doesn't exist
+    os.makedirs(user_model_folder, exist_ok=True)
     
-    print(f"Model and scaler saved for user {username}.")
-
-# def main():
-#     if not os.path.exists(MODEL_PATH) or not os.path.exists(SCALER_PATH):
-#         print("Training new model...")
-#         model = train_model()
-#         scaler = torch.load(SCALER_PATH)
-#     else:
-#         print("Loading existing model...")
-#         input_size = len(get_embedding(os.path.join(USER_FOLDER, os.listdir(USER_FOLDER)[0])))
-#         model = VariableLengthSpeakerVerificationModel(input_size)
-#         model.load_state_dict(torch.load(MODEL_PATH))
-#         scaler = torch.load(SCALER_PATH)
+    # Save the model if provided and not set to save only the scaler
+    if not save_scaler_only and model is not None:
+        model_path = os.path.join(user_model_folder, MODEL_PATH)
+        # Save only the state dict of the model
+        torch.save(model.state_dict(), model_path)  # Save the state dictionary
+        print(f"Model saved at {model_path}")
     
-#     # Test the model
-#     test_audio_path = "test_audio.wav"
-#     is_verified, probability = verify_speaker(test_audio_path, model, scaler)
-#     if is_verified:
-#         print(f"Speaker verified as the authorized user with probability: {probability:.4f}")
-#     else:
-#         print(f"Speaker not verified. Probability of being the authorized user: {probability:.4f}")
-
-# if __name__ == "__main__":
-#     main()
+    # Save the scaler if provided
+    if scaler is not None:
+        scaler_path = os.path.join(user_model_folder, SCALER_PATH)
+        with open(scaler_path, 'wb') as scaler_file:
+            pickle.dump(scaler, scaler_file)
+        print(f"Scaler saved at {scaler_path}")
