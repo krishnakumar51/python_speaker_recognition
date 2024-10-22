@@ -10,3 +10,4 @@ noisereduce==3.0.2
 soundfile==0.12.1
 SpeechRecognition==3.10.4
 ipython==8.27.0
+tensorflow==2.17.0
