@@ -29,12 +29,15 @@ RUN pip install -r requirements.txt --verbose && \
 # Copy the rest of the application code
 COPY . /app/
 
+# Create an empty __init__.py file if needed
+RUN touch /app/__init__.py
+
 # Clean up unused imports and organize the imports
 RUN autoflake --remove-all-unused-imports --remove-unused-variables --in-place --recursive /app && \
     isort /app
 
 # Optionally run linting to ensure the code is clean (optional step)
-RUN pylint /app --disable=all --enable=unused-import
+RUN pylint /app --disable=all --enable=unused-import --ignore-patterns="__init__.py"
 
 # Expose the port that Flask will use
 EXPOSE 5000
