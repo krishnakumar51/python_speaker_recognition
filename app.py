@@ -15,7 +15,7 @@ from main_imp import (
     SpeakerVerificationModel,
     train_model, verify_speaker, get_embedding, MODEL_PATH,
     SCALER_PATH, prepare_data, save_user_model, USER_MODEL_FOLDER,
-    SCALER_PATH, MODEL_PATH)
+    SCALER_PATH, MODEL_PATH, NON_USER_FOLDER)
 import pickle
 
 app = Flask(__name__)
@@ -233,6 +233,69 @@ def upload_sample(username):
         return jsonify({'message': f'Audio sample uploaded and wake word detected for {username}'}), 200
     except Exception as e:
         print(f"Error while processing audio upload for {username}: {e}")
+        # Cleanup the temporary file in case of an error
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+        return jsonify({'error': f'Error while uploading audio: {str(e)}'}), 500
+
+
+
+@app.route('/clear_negative_samples', methods=['POST'])
+def clear_negative_samples():
+    try:
+        # Ensure that the NON_USER_FOLDER exists
+        if not os.path.exists(NON_USER_FOLDER):
+            return jsonify({'error': 'NON_USER_FOLDER does not exist'}), 400
+        
+        # Remove all files in the NON_USER_FOLDER
+        for filename in os.listdir(NON_USER_FOLDER):
+            file_path = os.path.join(NON_USER_FOLDER, filename)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+
+        return jsonify({'message': 'All negative samples have been cleared from NON_USER_FOLDER'}), 200
+    except Exception as e:
+        print(f"Error while clearing NON_USER_FOLDER: {e}")
+        return jsonify({'error': f'Error while clearing folder: {str(e)}'}), 500
+
+
+
+@app.route('/upload_negative_sample', methods=['POST'])
+def upload_negative_sample():
+    # Ensure that the NON_USER_FOLDER exists
+    os.makedirs(NON_USER_FOLDER, exist_ok=True)
+
+    # Check if the file part is present in the request
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file provided'}), 400
+
+    audio_file = request.files['audio']
+
+    # Ensure a file has been selected
+    if audio_file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    # Save the audio file with a unique filename
+    unique_filename = str(uuid.uuid4()) + '.wav'
+    audio_path = os.path.join(TEMP_AUDIO_FOLDER, unique_filename)
+
+    try:
+        audio_file.save(audio_path)
+        print(f"Negative audio sample saved at {audio_path}")
+
+        # Check for the wake word in the audio file
+        if not detect_wake_word(audio_path):
+            os.remove(audio_path)  # Remove the file if wake word is not detected
+            return jsonify({'message': 'Wake word not detected, please upload again'}), 400
+
+        # Move the processed audio to the NON_USER_FOLDER
+        final_audio_path = os.path.join(NON_USER_FOLDER, unique_filename)
+        os.rename(audio_path, final_audio_path)
+        denoise_audio(final_audio_path)
+
+        return jsonify({'message': 'Negative audio sample uploaded and wake word detected'}), 200
+    except Exception as e:
+        print(f"Error while processing negative audio sample: {e}")
         # Cleanup the temporary file in case of an error
         if os.path.exists(audio_path):
             os.remove(audio_path)
