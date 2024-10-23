@@ -1,66 +1,58 @@
-# Stage 1: Build Stage - Python 3.10.14 slim with dev tools for cleanup
-FROM python:3.10.14-slim AS build
+# Stage 1: Build and Dependency Installation
+FROM python:3.10-slim-buster AS build
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV TF_ENABLE_ONEDNN_OPTS=0
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TF_ENABLE_ONEDNN_OPTS=0
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get install -y \
+    gcc \
     libsndfile1 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/*
+    build-essential \
+    libffi-dev \
+    python3-dev \
+    linux-headers-amd64 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
 WORKDIR /app
 
-# Copy the requirements file
+# Copy only the requirements file (for better caching)
 COPY requirements.txt /app/
 
-# Install necessary tools for code cleanup (only for the build stage)
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir autoflake isort pylint flake8 --verbose
-
-# Install project dependencies (still in build stage)
-RUN pip install --no-cache-dir -r requirements.txt --verbose
+# Install pip and project dependencies
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt --no-cache-dir
 
 # Copy the rest of the application code
 COPY . /app/
 
-# Clean up unused imports and organize the imports
-RUN autoflake --remove-all-unused-imports --remove-unused-variables --in-place --recursive /app && \
-    isort /app
+# Clean up build dependencies to reduce size (optional, if you don't need them in final)
+RUN apt-get remove -y gcc build-essential libffi-dev python3-dev linux-headers-amd64 && apt-get autoremove -y
 
-# Run linting to ensure the code is clean (optional step)
-RUN pylint /app --disable=all --enable=unused-import --ignore-patterns="__init__.py"
-
-# Stage 2: Final Production Stage
-FROM python:3.10.14-slim AS final
+# Stage 2: Production Image
+FROM python:3.10-slim-buster AS final
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV TF_ENABLE_ONEDNN_OPTS=0
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    TF_ENABLE_ONEDNN_OPTS=0
 
-# Install system dependencies required for runtime only
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install only the runtime dependencies
+RUN apt-get update && apt-get install -y \
     libsndfile1 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/*
+    && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
 WORKDIR /app
 
-# Copy only the essential runtime files from the build stage
+# Copy the installed dependencies and application code from the build stage
+COPY --from=build /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
 COPY --from=build /app /app
 
-# Install only the runtime dependencies
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt --verbose && \
-    rm -rf /root/.cache/pip
-
-# Expose the port that Flask will use
+# Expose the Flask port
 EXPOSE 5000
 
 # Command to run the Flask app using Gunicorn
