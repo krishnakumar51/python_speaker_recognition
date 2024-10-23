@@ -23,7 +23,18 @@ DROPOUT_RATE = 0.3
 ECAPA_TDNN_EMBEDDING_SIZE = 192
 
 # Load the pre-trained model for embedding extraction
-encoder = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb")
+def load_pretrained_encoder():
+    pretrained_model_path = "/root/.cache/huggingface/hub/models--speechbrain--spkrec-ecapa-voxceleb"
+    
+    # Check if the pretrained model directory exists, and remove it if it does
+    if os.path.exists(pretrained_model_path):
+        shutil.rmtree(pretrained_model_path)  # Remove the existing directory
+    
+    # Now load the pretrained model
+    encoder = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb")
+    return encoder
+
+encoder = load_pretrained_encoder()
 
 class AttentionPooling(nn.Module):
     def __init__(self, input_dim):
@@ -169,6 +180,14 @@ def verify_speaker(audio_path, model, scaler):
         probability = output.item()
     return probability > 0.75, probability
 
+
+def create_directory(path):
+    """Create a directory if it doesn't exist."""
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print(f"Created directory: {path}")
+
+
 # Folder Management Functions (no changes required here)
 def create_user_folder(username):
     user_folder_path = os.path.join(USER_FOLDER, username)
@@ -193,6 +212,7 @@ def remove_user_folder(username):
 def save_user_model(model, scaler, username, save_scaler_only=False):
     # Define the path for the user-specific folder inside the 'UserModel' directory
     user_model_folder = os.path.join(USER_MODEL_FOLDER, username)
+    create_directory(user_model_folder)
     
     # Create the directory if it doesn't exist
     os.makedirs(user_model_folder, exist_ok=True)

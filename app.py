@@ -35,6 +35,12 @@ os.makedirs(INPUT_SIZES, exist_ok=True)
 model = None
 scaler = None
 
+def create_directory(path):
+    """Create a directory if it doesn't exist."""
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print(f"Created directory: {path}")
+
 def save_registered_users():
     with open(REGISTERED_USERS_FILE, 'w') as f:
         for user in REGISTERED_USERS:
@@ -193,7 +199,7 @@ def upload_sample(username):
     # Check if the user is registered
     if username not in REGISTERED_USERS:
         return jsonify({'error': 'User not registered'}), 400
-
+    create_directory(AUTHORIZED_USER_FOLDER)
     user_dir = os.path.join(AUTHORIZED_USER_FOLDER, username)
     os.makedirs(user_dir, exist_ok=True)  # Create a user-specific folder if it doesn't exist
 
@@ -379,6 +385,7 @@ def recognize_speaker_and_emotion_endpoint(username):
     if audio_file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
 
+    create_directory(TEMP_AUDIO_FOLDER)
     # Create a user-specific temp folder
     user_temp_folder = os.path.join(TEMP_AUDIO_FOLDER, username)
     os.makedirs(user_temp_folder, exist_ok=True)
