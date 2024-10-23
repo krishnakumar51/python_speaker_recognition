@@ -17,13 +17,24 @@ WORKDIR /app
 # Copy the requirements file
 COPY requirements.txt /app/
 
-# Install dependencies
-RUN pip install --upgrade pip
+# Install necessary tools for code cleanup
+RUN pip install --upgrade pip && \
+    pip install autoflake isort pylint flake8 --verbose && \
+    rm -rf /root/.cache/pip
+
+# Install project dependencies
 RUN pip install -r requirements.txt --verbose && \
-    rm -rf /root/.cache/pip  
+    rm -rf /root/.cache/pip
 
 # Copy the rest of the application code
 COPY . /app/
+
+# Clean up unused imports and organize the imports
+RUN autoflake --remove-all-unused-imports --remove-unused-variables --in-place --recursive /app && \
+    isort /app
+
+# Optionally run linting to ensure the code is clean (optional step)
+RUN pylint /app --disable=all --enable=unused-import
 
 # Expose the port that Flask will use
 EXPOSE 5000
