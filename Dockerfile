@@ -23,7 +23,7 @@ RUN apt-get update && \
 RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir -U pip setuptools wheel
 
-COPY requirements.txt .
+COPY requirements.txt /app/
 RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt && \
     find /opt/venv -type d -name "__pycache__" -exec rm -r {} + && \
     find /opt/venv -type f -name "*.pyc" -delete && \
@@ -57,9 +57,8 @@ RUN apt-get update && \
 # Copy only necessary files from builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy application files
-COPY --chown=appuser:appuser *.py /app/
-COPY --chown=appuser:appuser pretrained_models/ /app/pretrained_models/
+# Copy all application files from the 'app' directory, including subdirectories
+COPY --chown=appuser:appuser /app/ /app/
 
 # Remove unnecessary files from virtual environment
 RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
