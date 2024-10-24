@@ -1,55 +1,27 @@
-# Version control
-.git
-.gitignore
-.gitattributes
-
-# Python
 __pycache__
 *.pyc
 *.pyo
 *.pyd
 .Python
-*.py[cod]
-*$py.class
-*.so
-.pytest_cache
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
 .coverage
-htmlcov/
-
-# Environments
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache
 .env
 .venv
-env/
 venv/
-ENV/
-
-# IDE
-.idea
-.vscode
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Project specific
-*.mp3
-*.wav
-*.flac
-test_data/
-tests/
-docs/
-README.md
+.git
+.gitignore
 Dockerfile
 docker-compose.yml
-*.log
-temp/
-
-# Models management (adjust based on your needs)
-pretrained_models/*
-!pretrained_models/required_model/  # Keep specific model folder
-*.pkl
-
-# Temporary files
-.cache
+README.md
+tests/
+docs/

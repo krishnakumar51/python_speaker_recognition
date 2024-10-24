@@ -28,9 +28,8 @@ REGISTERED_USERS_FILE = 'registered_users.txt'
 REGISTERED_USERS = set() 
 
 # Create necessary directories
-os.makedirs(TEMP_AUDIO_FOLDER, exist_ok=True)
-os.makedirs(AUTHORIZED_USER_FOLDER, exist_ok=True)
-os.makedirs(INPUT_SIZES, exist_ok=True)
+for directory in [TEMP_AUDIO_FOLDER, AUTHORIZED_USER_FOLDER, INPUT_SIZES]:
+    os.makedirs(directory, exist_ok=True)
 # Global variables to store the model and scaler
 model = None
 scaler = None
@@ -42,27 +41,27 @@ def create_directory(path):
         print(f"Created directory: {path}")
 
 def save_registered_users():
+    """Save registered users to file."""
     with open(REGISTERED_USERS_FILE, 'w') as f:
         for user in REGISTERED_USERS:
             f.write(user + '\n')
 
 def load_registered_users():
+    """Load registered users from file."""
     global REGISTERED_USERS
     if os.path.exists(REGISTERED_USERS_FILE):
         with open(REGISTERED_USERS_FILE, 'r') as f:
-            users = f.read().splitlines()
-            REGISTERED_USERS = set(users)
+            REGISTERED_USERS = set(f.read().splitlines())
     else:
         REGISTERED_USERS = set()
 
-# Helper function to save registered users to a file
 def save_registered_user(username):
+    """Save a single registered user to file."""
     with open(REGISTERED_USERS_FILE, 'a') as f:
         f.write(username + '\n')
 
-
-# Function to denoise audio
 def denoise_audio(file_path):
+    """Denoise audio file at given path."""
     try:
         audio_data, sample_rate = librosa.load(file_path, sr=None)
         denoised_audio = nr.reduce_noise(y=audio_data, sr=sample_rate)
@@ -72,95 +71,64 @@ def denoise_audio(file_path):
         print(f"Error during denoising: {str(e)}")
 
 def detect_wake_word(audio_file_path):
+    """Detect wake word in audio file."""
     recognizer = sr.Recognizer()
-
-    # Load the audio file and apply the recognizer
     with sr.AudioFile(audio_file_path) as source:
         audio = recognizer.record(source)
         try:
-            # Transcribe the audio to text
             text = recognizer.recognize_google(audio)
             print(f"Recognized Text: {text}")
-
-            # Check if the recognized text contains "hey buddy" (case-insensitive)
-            wake_word = "hey buddy"
-            if wake_word in text.lower():
-                print("Wake word detected.")
-                return True
-            else:
-                print("Wake word not detected.")
-                return False
+            return "hey buddy" in text.lower()
         except sr.UnknownValueError:
-            # Handle cases where the speech is unclear or not understandable
             print("Could not understand the audio")
             return False
         except sr.RequestError as e:
-            # Handle any issues with the speech recognition service
             print(f"Speech recognition error: {e}")
             return False
 
-
-
 def load_input_size_for_user(username):
-    input_size_folder = INPUT_SIZES
-    input_size_file = os.path.join(input_size_folder, "input_size.txt")
-    
+    """Load input size for specific user."""
+    input_size_file = os.path.join(INPUT_SIZES, "input_size.txt")
     if os.path.exists(input_size_file):
         with open(input_size_file, 'r') as f:
             for line in f:
                 if line.startswith(username):
                     try:
-                        return int(line.split(":")[1].strip())  # Return the input size as an int
+                        return int(line.split(":")[1].strip())
                     except (ValueError, IndexError) as e:
                         print(f"Error parsing input size for user {username}: {e}")
                         return None
-    
     print(f"No input size found for user {username}.")
     return None
 
-
 def load_model_for_user(username):
+    """Load model and scaler for specific user."""
     global model, scaler
     user_model_path = os.path.join(USER_MODEL_FOLDER, username, MODEL_PATH)
     user_scaler_path = os.path.join(USER_MODEL_FOLDER, username, SCALER_PATH)
-    input_size_file = os.path.join(INPUT_SIZES, "input_size.txt")
-
-    if os.path.exists(user_model_path) and os.path.exists(user_scaler_path) and os.path.exists(input_size_file):
-        print(f"Loading model for user {username} from {user_model_path}")
-
-        # Read input size from the file
-        input_size = load_input_size_for_user(username)  
-        if input_size is None:
-            print(f"Input size could not be determined for user {username}.")
-            return None, None  
-
-        model = SpeakerVerificationModel(input_size)  # Initialize model first
+    input_size = load_input_size_for_user(username)
+    
+    if all(os.path.exists(p) for p in [user_model_path, user_scaler_path]) and input_size:
         try:
-            model.load_state_dict(torch.load(user_model_path))  # Load the state dict
+            model = SpeakerVerificationModel(input_size)
+            model.load_state_dict(torch.load(user_model_path))
             model.eval()
-            scaler = pickle.load(open(user_scaler_path, 'rb'))  # Load scaler
-            print("Model and scaler loaded successfully.")
-            return model, scaler  
-        except RuntimeError as e:
-            print(f"Error loading model: {e}. You may need to retrain the model.")
-            model = None
-            scaler = None
-    else:
-        print(f"Model, scaler, or input size not found for user: {username}. Please train the model first.")
-        return None, None  
+            with open(user_scaler_path, 'rb') as f:
+                scaler = pickle.load(f)
+            return model, scaler
+        except Exception as e:
+            print(f"Error loading model: {e}")
+    return None, None
 
-
-
-
-
+# Flask routes
 @app.route('/', methods=['GET'])
 def hello():
+    """Root endpoint."""
     return "hello", 200
-
-
 
 @app.route('/ping', methods=['GET'])
 def ping():
+    """Health check endpoint."""
     return jsonify({'message': 'pong'}), 200
 
 @app.route('/model_status/<username>', methods=['GET'])
@@ -476,7 +444,6 @@ def delete_model(username):
 if __name__ == '__main__':
     # Load registered users from file at startup
     load_registered_users()
-    
     print(f"Registered users: {REGISTERED_USERS}")
     port = int(os.environ.get("PORT", 5000))  # Use the PORT environment variable
     app.run(debug=True, use_reloader=False, host='0.0.0.0', port=port)
