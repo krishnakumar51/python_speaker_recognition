@@ -1,60 +1,76 @@
-# Stage 1: Build and Dependency Installation
-FROM python:3.10-slim-buster AS build
-
-# Set environment variables to prevent .pyc files and enable TensorFlow optimizations
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    TF_ENABLE_ONEDNN_OPTS=0
-
-# Install essential system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    g++ \
-    libsndfile1 \
-    build-essential \
-    libffi-dev \
-    python3-dev \
-    linux-headers-amd64 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set the working directory
-WORKDIR /app
-
-# Copy only the requirements file (to leverage Docker layer caching)
-COPY requirements.txt /app/
-
-# Install Python dependencies without cache
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt --no-cache-dir
-
-# Clean up build dependencies to reduce the image size
-RUN apt-get purge -y gcc g++ build-essential python3-dev linux-headers-amd64 && apt-get autoremove -y
-
-# Copy the rest of the application code
-COPY . /app/
-
-# Stage 2: Production Image
-FROM python:3.10-slim-buster AS final
+# Stage 1: Builder
+FROM python:3.10-slim-buster as builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    TF_ENABLE_ONEDNN_OPTS=0
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install only runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libsndfile1 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set the working directory
 WORKDIR /app
 
-# Copy installed dependencies and the application from the build stage
-COPY --from=build /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
-COPY --from=build /app /app
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libsndfile1 \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
 
-# Expose the Flask port
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install Python packages
+COPY requirements.txt .
+RUN pip install --no-cache-dir -U pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt && \
+    # Clean up pip cache
+    rm -rf ~/.cache/pip/*
+
+# Stage 2: Runtime
+FROM python:3.10-slim-buster as runtime
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH" \
+    # TensorFlow optimizations
+    TF_ENABLE_ONEDNN_OPTS=1 \
+    TF_CPP_MIN_LOG_LEVEL=2 \
+    # Python optimizations
+    PYTHONOPTIMIZE=2
+
+WORKDIR /app
+
+# Install only required runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libsndfile1 \
+    && rm -rf /var/lib/apt/lists/* && \
+    # Create cache directories
+    mkdir -p /app/pretrained_models /app/.cache && \
+    # Add non-root user
+    useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app /app/pretrained_models /app/.cache
+
+# Copy virtual environment
+COPY --from=builder /opt/venv /opt/venv
+
+# Copy only necessary files
+COPY --chown=appuser:appuser models/ /app/models/
+COPY --chown=appuser:appuser *.py /app/
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
 EXPOSE 5000
 
-# Use Gunicorn to run the Flask app
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
+# Run with optimized settings
+CMD ["gunicorn", \
+    "--bind", "0.0.0.0:5000", \
+    "--workers", "2", \
+    "--threads", "4", \
+    "--worker-class", "gthread", \
+    "--worker-tmp-dir", "/dev/shm", \
+    "--access-logfile", "-", \
+    "app:app"]

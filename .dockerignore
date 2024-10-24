@@ -1,38 +1,52 @@
-# Ignore Python cache files
-__pycache__/
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
 *.pyc
 *.pyo
+*.pyd
+.Python
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache
+.coverage
+htmlcov/
 
-# Ignore local development environment files
-*.env
-*.DS_Store
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
 
-# Ignore Git and version control directories
-.git/
-.gitignore
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
 
-# Ignore Docker-related files that are not required inside the container
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.mp3
+*.wav
+*.flac
+test_data/
+tests/
+docs/
+README.md
 Dockerfile
 docker-compose.yml
-
-# Ignore virtual environments and Python packages
-venv/
-*.egg-info/
-.eggs/
-pip-wheel-metadata/
-
-# Ignore temporary files
 *.log
-*.tmp
-*.bak
-
-# Ignore test folders (if you have any that are not needed in the image)
-tests/
-test/
-
-# Ignore any local data files you do not want in the container
-data/
-dataset/
-
-# Ignore .github folder
-.github/
+temp/
+pretrained_models/*
+!pretrained_models/required_model/
+models/*
+!models/required_model.pt
+*.pkl
