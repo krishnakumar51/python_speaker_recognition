@@ -45,8 +45,11 @@ Dockerfile
 docker-compose.yml
 *.log
 temp/
+
+# Models management (adjust based on your needs)
 pretrained_models/*
-!pretrained_models/required_model/
-models/*
-!models/required_model.pt
+!pretrained_models/required_model/  # Keep specific model folder
 *.pkl
+
+# Temporary files
+.cache
