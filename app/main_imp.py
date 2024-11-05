@@ -11,8 +11,9 @@ import pickle
 import torch.nn.functional as F
 
 # Constants
-USER_MODEL_FOLDER = "UserModel"
-USER_FOLDER = "authenticated_user"
+DATA_DIR = "data"
+USER_MODEL_FOLDER = os.path.join(DATA_DIR, "UserModel")
+USER_FOLDER = os.path.join(DATA_DIR, "authenticated_user")
 NON_USER_FOLDER = "non_target"
 MODEL_PATH = "model.pth"
 SCALER_PATH = "scaler.pkl"
@@ -106,9 +107,6 @@ def prepare_data(user_dir, username):
     
     # Save the scaler for later use in the specific user's folder
     save_user_model(None, scaler, username, save_scaler_only=True)
-    
-    return train_test_split(X_scaled, y, test_size=0.2, random_state=42)
-
     
     return train_test_split(X_scaled, y, test_size=0.2, random_state=42)
 

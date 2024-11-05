@@ -15,16 +15,17 @@ from main_imp import (
     SpeakerVerificationModel,
     train_model, verify_speaker, get_embedding, MODEL_PATH,
     SCALER_PATH, prepare_data, save_user_model, USER_MODEL_FOLDER,
-    SCALER_PATH, MODEL_PATH, NON_USER_FOLDER)
+    SCALER_PATH, MODEL_PATH, NON_USER_FOLDER, DATA_DIR)
 import pickle
 
 app = Flask(__name__)
 CORS(app)
 
-AUTHORIZED_USER_FOLDER = "authenticated_user"
-TEMP_AUDIO_FOLDER = "temp_audio"
-INPUT_SIZES = "input_sizes"
-REGISTERED_USERS_FILE = 'registered_users.txt'
+
+AUTHORIZED_USER_FOLDER = os.path.join(DATA_DIR, "authenticated_user")
+TEMP_AUDIO_FOLDER = os.path.join(DATA_DIR, "temp_audio")
+INPUT_SIZES = os.path.join(DATA_DIR, "input_sizes")
+REGISTERED_USERS_FILE =os.path.join(DATA_DIR,'registered_users.txt')
 REGISTERED_USERS = set() 
 
 # Create necessary directories

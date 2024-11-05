@@ -68,10 +68,10 @@ RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
     find /opt/venv -type d -name "__pycache__" -exec rm -r {} +
 
 USER appuser
-EXPOSE 5000
+EXPOSE 5001
 
 CMD ["gunicorn", \
-    "--bind", "0.0.0.0:5000", \
+    "--bind", "0.0.0.0:5001", \
     "--workers", "2", \
     "--threads", "4", \
     "--worker-class", "sync", \
