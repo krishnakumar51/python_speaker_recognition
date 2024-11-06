@@ -195,7 +195,7 @@ def clear_negative_samples():
 async def upload_negative_sample(audio: UploadFile = File(...)):
     os.makedirs(NON_USER_FOLDER, exist_ok=True)
     unique_filename = str(uuid.uuid4()) + '.wav'
-    audio_path = os.path.join(TEMP_AUDIO_FOLDER, unique_filename)
+    audio_path = os.path.join(NON_USER_FOLDER, unique_filename)
 
     with open(audio_path, "wb") as buffer:
         buffer.write(await audio.read())

@@ -252,7 +252,7 @@ def upload_negative_sample():
 
     # Save the audio file with a unique filename
     unique_filename = str(uuid.uuid4()) + '.wav'
-    audio_path = os.path.join(TEMP_AUDIO_FOLDER, unique_filename)
+    audio_path = os.path.join(NON_USER_FOLDER, unique_filename)
 
     try:
         audio_file.save(audio_path)
