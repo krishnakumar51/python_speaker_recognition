@@ -138,7 +138,7 @@ def model_status(username):
     user_scaler_path = os.path.join(USER_MODEL_FOLDER, username, SCALER_PATH)
     
     if os.path.exists(user_model_path) and os.path.exists(user_scaler_path):
-        return jsonify({'message': f'Model for user {username} is already trained and loaded.'}), 200
+        return jsonify({'message': f'Model for user {username} is already trained.'}), 200
     else:
         return jsonify({'message': f'No trained model found for user {username}. Please train the model first.'}), 404
 

@@ -1,12 +1,11 @@
 # Stage 1: Builder
-FROM python:3.10-slim-buster as builder
+FROM python:3.10-slim-buster AS builder
 
-# Set environment variables
+# Set environment variables to prevent .pyc files and enable faster builds
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONPATH="/app:$PYTHONPATH"
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
@@ -19,46 +18,48 @@ RUN apt-get update && \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Create virtual environment and install packages
+# Create virtual environment and install packages in the builder stage
 RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir -U pip setuptools wheel
 
-COPY requirements.txt /app/
+# Copy requirements and install dependencies
+COPY requirements.txt .
 RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt && \
     find /opt/venv -type d -name "__pycache__" -exec rm -r {} + && \
     find /opt/venv -type f -name "*.pyc" -delete && \
-    find /opt/venv -type f -name "*.pyo" -delete && \
-    rm -rf ~/.cache/pip/*
+    find /opt/venv -type f -name "*.pyo" -delete
 
 # Stage 2: Runtime (minimal)
-FROM python:3.10-slim-buster as runtime
+FROM python:3.10-slim-buster AS runtime
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
-    PYTHONPATH="/app:$PYTHONPATH" \
+    PYTHONPATH="/app" \
     TF_ENABLE_ONEDNN_OPTS=1 \
     TF_CPP_MIN_LOG_LEVEL=2 \
     PYTHONOPTIMIZE=0
 
 WORKDIR /app
 
-# Install only essential runtime dependencies
+# Install runtime dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     libsndfile1 \
     && apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
-    mkdir -p /app/pretrained_models /app/.cache && \
-    useradd -m -u 1000 appuser && \
-    chown -R appuser:appuser /app /app/pretrained_models /app/.cache
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Copy only necessary files from builder
+# Copy virtual environment from builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy all application files from the 'app' directory, including subdirectories
-COPY --chown=appuser:appuser /app/ /app/
+# Copy application files
+COPY . .
+
+# Create necessary directories and set permissions for FastAPI user
+RUN mkdir -p /app/pretrained_models /app/.cache && \
+    useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app /app/pretrained_models /app/.cache
 
 # Remove unnecessary files from virtual environment
 RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
@@ -68,17 +69,7 @@ RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
     find /opt/venv -type d -name "__pycache__" -exec rm -r {} +
 
 USER appuser
-EXPOSE 5001
+EXPOSE 8000
 
-CMD ["gunicorn", \
-    "--bind", "0.0.0.0:5001", \
-    "--workers", "1", \
-    "--threads", "2", \
-    "--worker-class", "sync", \
-    "--worker-tmp-dir", "/dev/shm", \
-    "--access-logfile", "-", \
-    "--error-logfile", "-", \
-    "--log-level", "debug", \
-    "--timeout", "120", \
-    "--preload", \
-    "app:app"]
+# Use Uvicorn with optimized settings for FastAPI
+CMD ["uvicorn", "fast:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--log-level", "info"]
