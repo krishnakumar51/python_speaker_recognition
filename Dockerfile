@@ -72,13 +72,11 @@ EXPOSE 5001
 
 CMD ["gunicorn", \
     "--bind", "0.0.0.0:5001", \
-    "--workers", "1", \
-    "--threads", "2", \
+    "--workers", "2", \
     "--worker-class", "sync", \
     "--worker-tmp-dir", "/dev/shm", \
     "--access-logfile", "-", \
     "--error-logfile", "-", \
     "--log-level", "debug", \
     "--timeout", "120", \
-    "--preload", \
     "app:app"]
