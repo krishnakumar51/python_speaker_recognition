@@ -69,7 +69,7 @@ RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
     find /opt/venv -type f -name "*.pyo" -delete && \
     find /opt/venv -type d -name "__pycache__" -exec rm -r {} +
 
-USER appuser
+# USER appuser
 EXPOSE 8000
 
 # Use Uvicorn with optimized settings for FastAPI
