@@ -1,4 +1,3 @@
-
 # Stage 1: Builder
 FROM python:3.10-slim-buster AS builder
 
@@ -24,7 +23,7 @@ RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir -U pip setuptools wheel
 
 # Copy requirements and install dependencies
-COPY requirements.txt .
+COPY requirements.txt . 
 RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt && \
     find /opt/venv -type d -name "__pycache__" -exec rm -r {} + && \
     find /opt/venv -type f -name "*.pyc" -delete && \
@@ -54,13 +53,11 @@ RUN apt-get update && \
 # Copy only the virtual environment from the builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy application files with appropriate ownership
-COPY --chown=appuser:appuser /app/ /app/
+# Copy application files without specific ownership
+COPY /app/ /app/
 
-# Create necessary directories and set permissions for FastAPI user
-RUN mkdir -p /app/pretrained_models /app/.cache && \
-    useradd -m -u 1000 appuser && \
-    chown -R appuser:appuser /app /app/pretrained_models /app/.cache
+# Create necessary directories (root will automatically have permission)
+RUN mkdir -p /app/pretrained_models /app/.cache
 
 # Remove unnecessary files from virtual environment
 RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
@@ -69,7 +66,6 @@ RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
     find /opt/venv -type f -name "*.pyo" -delete && \
     find /opt/venv -type d -name "__pycache__" -exec rm -r {} +
 
-# USER appuser
 EXPOSE 8000
 
 # Use Uvicorn with optimized settings for FastAPI
