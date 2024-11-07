@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import pickle
 import torch.nn.functional as F
+import shutil
 
 # Constants
 DATA_DIR = "data"
@@ -27,11 +28,13 @@ ECAPA_TDNN_EMBEDDING_SIZE = 192
 def load_pretrained_encoder():
     pretrained_model_path = "/root/.cache/huggingface/hub/models--speechbrain--spkrec-ecapa-voxceleb"
     
-    # Check if the pretrained model directory exists, and remove it if it does
+    # Check if the model already exists
     if os.path.exists(pretrained_model_path):
-        shutil.rmtree(pretrained_model_path)  # Remove the existing directory
+        print("Using cached model.")
+    else:
+        print("Cached model not found. Downloading the model.")
     
-    # Now load the pretrained model
+    # Load the pretrained model (will use the cache if available)
     encoder = EncoderClassifier.from_hparams(source="speechbrain/spkrec-ecapa-voxceleb")
     return encoder
 
