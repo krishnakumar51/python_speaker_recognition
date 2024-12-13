@@ -13,7 +13,6 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
-    libsndfile1 \
     pkg-config && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -23,7 +22,7 @@ RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir -U pip setuptools wheel
 
 # Copy requirements and install dependencies
-COPY requirements.txt .
+COPY requirements.txt . 
 RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt && \
     find /opt/venv -type d -name "__pycache__" -exec rm -r {} + && \
     find /opt/venv -type f -name "*.pyc" -delete && \
@@ -70,4 +69,4 @@ RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
 EXPOSE 8000
 
 # Use Uvicorn with optimized settings for FastAPI
-CMD ["uvicorn", "fast:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info"]
+CMD ["uvicorn", "fast:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "$(nproc)", "--log-level", "info"]

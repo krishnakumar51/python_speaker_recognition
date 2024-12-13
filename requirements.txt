@@ -1,5 +1,4 @@
 librosa==0.10.2.post1
-gunicorn==23.0.0
 numpy==1.26.4
 torch==2.4.1
 speechbrain==1.0.1
