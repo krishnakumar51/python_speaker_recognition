@@ -8,7 +8,7 @@ noisereduce==3.0.2
 soundfile==0.12.1
 SpeechRecognition==3.10.4
 ipython==8.27.0
-tensorflow==2.17.0
+tensorflow-cpu==2.18.0
 fastapi==0.115.0
 uvicorn==0.30.6
 python-multipart==0.0.17
