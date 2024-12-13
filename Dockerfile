@@ -23,7 +23,7 @@ RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir -U pip setuptools wheel
 
 # Copy requirements and install dependencies
-COPY requirements.txt . 
+COPY requirements.txt .
 RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt && \
     find /opt/venv -type d -name "__pycache__" -exec rm -r {} + && \
     find /opt/venv -type f -name "*.pyc" -delete && \
@@ -32,14 +32,15 @@ RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt && \
 # Stage 2: Runtime (minimal)
 FROM python:3.10-slim-buster AS runtime
 
-# Set environment variables
+# Set environment variables for performance and logging
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
     PYTHONPATH="/app" \
     TF_ENABLE_ONEDNN_OPTS=1 \
     TF_CPP_MIN_LOG_LEVEL=2 \
-    PYTHONOPTIMIZE=0
+    PYTHONOPTIMIZE=0 \
+    OMP_NUM_THREADS=1 
 
 WORKDIR /app
 
