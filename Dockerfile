@@ -13,6 +13,7 @@ WORKDIR /app
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     build-essential \
+    libsndfile1 \
     pkg-config && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
@@ -69,4 +70,4 @@ RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
 EXPOSE 8000
 
 # Use Uvicorn with optimized settings for FastAPI
-CMD ["uvicorn", "fast:app", "--host", "0.0.0.0", "--port", "8000", "--workers",  "--log-level", "info", "debug"]
+CMD ["uvicorn", "fast:app", "--host", "0.0.0.0", "--port", "8000", "--workers","1"  "--log-level", "info"]
