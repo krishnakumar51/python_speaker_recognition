@@ -69,4 +69,4 @@ RUN find /opt/venv -type d -name "tests" -exec rm -rf {} + && \
 EXPOSE 8000
 
 # Use Uvicorn with optimized settings for FastAPI
-CMD ["uvicorn", "fast:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "$(nproc)", "--log-level", "info"]
+CMD ["uvicorn", "fast:app", "--host", "0.0.0.0", "--port", "8000", "--workers",  "--log-level", "info", "debug"]
